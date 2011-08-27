@@ -2,28 +2,43 @@ var stream = require('stream'),
 	sys = require('sys'),
 	util = require('util');
 
-/**
- * Create instance of MemoryStream.
- * 
- * @constructor
- * @param ondata
- * @returns
- */
-
 function MemoryStream(data, options) {
 	
 	stream.Stream.call(this);
+	var self = this;
 	
-	if(data && ! Array.isArray(data))
-		data = [data];
+	this.queue = [];
 	
-	this.queue = data || [];
+	if(data){
+		if(!Array.isArray(data))
+			data = [data];
+		
+		data.forEach(function(chunk){
+			if ( ! (chunk instanceof Buffer)) {
+				chunk = new Buffer(chunk);
+			}
+			
+			self.queue.push(chunk);
+		});
+	}
+	
 	this.paused = false;
 	this.reachmaxbuf = false;
 	
 	options = options || {};
 	
-	this.readable = options.hasOwnProperty('readable') ? options.readable : true;
+	this.readableVal = options.hasOwnProperty('readable') ? options.readable : true;
+	
+	this.__defineGetter__("readable", function(){
+		return self.readableVal;
+	});
+	
+	this.__defineSetter__("readable", function(val){
+		self.readableVal = val;
+		if(val)
+			self._next();
+	});
+	
 	this.writable = options.hasOwnProperty('writable') ? options.writable : true;
 	this.maxbufsize = options.hasOwnProperty('maxbufsize') ? options.maxbufsize : null;
 	this.bufoverflow = options.hasOwnProperty('bufoveflow') ? options.bufoveflow : null;
@@ -45,6 +60,25 @@ MemoryStream.prototype._next = function() {
 				process.nextTick(next);
 	}
 	next();
+};
+
+MemoryStream.prototype.getAll = function() {
+	var self = this;
+	var ret = '';
+	this.queue.forEach(function(data){
+		if (self._decoder) {
+			var string = self._decoder.write(data);
+			if (string.length) ret += data;
+		} else {
+			ret+=data;
+		}
+	});
+	return ret;
+};
+
+MemoryStream.prototype.setEncoding = function(encoding) {
+	var StringDecoder = require('string_decoder').StringDecoder;
+	this._decoder = new StringDecoder(encoding);
 };
 
 MemoryStream.prototype.pipe = function(destination, options) {
@@ -102,7 +136,12 @@ MemoryStream.prototype.flush = function() {
 			data = data[0];
 		}
 		
-		this.emit('data', data);
+		if (this._decoder) {
+			var string = this._decoder.write(data);
+			if (string.length) this.emit('data', string);
+		} else {
+			this.emit('data', data);
+		}
 		
 		if(cb) cb(null);
 		
@@ -134,7 +173,7 @@ MemoryStream.prototype.write = function(chunk, encoding, callback) {
 		encoding = undefined;
 	}
 	
-	if ( ! chunk instanceof Buffer) {
+	if ( ! (chunk instanceof Buffer)) {
 		
 		chunk = new Buffer(chunk, encoding);
 	}

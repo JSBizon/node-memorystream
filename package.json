@@ -1,0 +1,9 @@
+{
+	"name": "memorystream",
+	"description": "This is lightweight memory stream module for node.js.",
+	"version": "0.0.1",
+	"contributors": [
+		{ "name": "Dmitry Nizovtsev", "email": "dmitryp3@gmail.com" },
+	],
+	"engines": { "node": ">= 0.1.98" }
+}

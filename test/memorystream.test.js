@@ -73,6 +73,19 @@ module.exports = {
 		});
 	},
 	
+	"test MemoryStream buffering" : function(beforeExit){
+		var memStream = new MemoryStream();
+		memStream.readable = false;
+		
+		memStream.write('data1');
+		memStream.write('data2');
+		
+		beforeExit(function(){
+			memStream.setEncoding('utf8');
+			memStream.getAll().should.be.eql('data1data2');
+		});
+	},
+	
 	"test MemoryStream pipe" : function(beforeExit){
 		var loaded = false;
 		
@@ -129,6 +142,19 @@ module.exports = {
 		
 		beforeExit(function(){
 			data.should.be.eql('data1data2');
+		});
+	},
+	
+	"test MemoryStream setEncoding" : function(beforeExit){
+		var memStream = new MemoryStream('data');
+		memStream.on('data',function(chunk){
+			chunk.should.be.instanceof(Buffer);
+		});
+		
+		var memStream2 = new MemoryStream('data');
+		memStream2.setEncoding('utf8');
+		memStream2.on('data',function(chunk){
+			chunk.should.be.a('string');
 		});
 	}
 };
