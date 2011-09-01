@@ -114,7 +114,7 @@ MemoryStream.prototype.end = function(chunk, encoding) {
 		this.readable = false;
 	}
 	
-	this.emit('end');
+	this._emitEnd();
 };
 
 MemoryStream.prototype._getQueueSize = function() {
@@ -124,6 +124,24 @@ MemoryStream.prototype._getQueueSize = function() {
 	}
 	return queuesize;
 };
+
+
+MemoryStream.prototype._emitEnd = function(){
+	if(! this._ended){
+		this._ended = true;
+		this.emit('end');
+	}
+};
+
+
+MemoryStream.prototype._getQueueSize = function() {
+	var queuesize = 0;
+	for(var i = 0; i < this.queue.length; i++ ){
+		queuesize += Array.isArray(this.queue[i]) ? this.queue[i][0].length : this.queue[i].length;
+	}
+	return queuesize;
+};
+
 
 MemoryStream.prototype.flush = function() {
 
@@ -154,7 +172,7 @@ MemoryStream.prototype.flush = function() {
 	}
 	
 	if(!this.writable && !this.queue.length){
-		this.emit('end');
+		this._emitEnd();
 	}
 	
 	return false;

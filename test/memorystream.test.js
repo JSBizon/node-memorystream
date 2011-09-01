@@ -28,6 +28,7 @@ module.exports = {
 	},
 	
 	"test MemoryStream write/read" : function(beforeExit){
+		var loaded = false;
 		var memStream = new MemoryStream();
 		
 		var data = '';
