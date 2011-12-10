@@ -157,5 +157,35 @@ module.exports = {
 		memStream2.on('data',function(chunk){
 			chunk.should.be.a('string');
 		});
-	}
+	},
+	
+	"test destroy" : function(beforeExit){
+		var memStream = new MemoryStream('data1');
+		memStream.write('data2').should.be.true;
+		
+		memStream.destroy();
+		should.throws(function(){
+			memStream.write('data3');
+		});
+	},
+	
+	"test destroySoon" : function(beforeExit){
+		var memStream = new MemoryStream('data1');
+		var data = '';
+		memStream.on('data', function(chunk){
+			data += chunk;
+		});
+		
+		memStream.write('data2').should.be.true;
+		memStream.write('data3').should.be.true;
+		
+		memStream.on('end', function(){
+			data.should.equal('data1data2data3');
+		});
+		
+		memStream.destroySoon();
+		should.throws(function(){
+			memStream.write('data4');
+		});
+	},
 };

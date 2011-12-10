@@ -15,5 +15,5 @@
 		"url" : "https://github.com/JSBizon/node-memorystream.git"
 	},
 	"homepage": "https://github.com/JSBizon/node-memorystream",
-	"engines": { "node": ">= 0.1.98" }
+	"engines": { "node": ">= 0.3.0" }
 }

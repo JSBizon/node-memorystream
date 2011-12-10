@@ -1,6 +1,5 @@
 var stream = require('stream'),
-	sys = require('sys'),
-	util = require('util');
+    util = require('util');
 
 function MemoryStream(data, options) {
 	
@@ -10,8 +9,9 @@ function MemoryStream(data, options) {
 	this.queue = [];
 	
 	if(data){
-		if(!Array.isArray(data))
+		if(!Array.isArray(data)){
 			data = [data];
+		}
 		
 		data.forEach(function(chunk){
 			if ( ! (chunk instanceof Buffer)) {
@@ -35,15 +35,15 @@ function MemoryStream(data, options) {
 	
 	this.__defineSetter__("readable", function(val){
 		self.readableVal = val;
-		if(val)
+		if(val){
 			self._next();
+		}
 	});
 	
 	this.writable = options.hasOwnProperty('writable') ? options.writable : true;
 	this.maxbufsize = options.hasOwnProperty('maxbufsize') ? options.maxbufsize : null;
 	this.bufoverflow = options.hasOwnProperty('bufoveflow') ? options.bufoveflow : null;
 	
-	var self = this;
 	process.nextTick(function(){
 		self._next();
 	});
@@ -56,8 +56,9 @@ util.inherits(MemoryStream, stream.Stream);
 MemoryStream.prototype._next = function() {
 	var self = this;
 	function next(){
-		if( self.flush() && self.readable)
+		if( self.flush() && self.readable){
 				process.nextTick(next);
+		}
 	}
 	next();
 };
@@ -68,7 +69,9 @@ MemoryStream.prototype.getAll = function() {
 	this.queue.forEach(function(data){
 		if (self._decoder) {
 			var string = self._decoder.write(data);
-			if (string.length) ret += data;
+			if (string.length){
+				ret += data;
+			}
 		} else {
 			ret+=data;
 		}
@@ -82,10 +85,7 @@ MemoryStream.prototype.setEncoding = function(encoding) {
 };
 
 MemoryStream.prototype.pipe = function(destination, options) {
-	
-	var pump = sys.pump || util.pump;
-	
-	pump(this, destination);
+	util.pump(this, destination);
 };
 
 MemoryStream.prototype.pause = function() {
@@ -118,8 +118,8 @@ MemoryStream.prototype.end = function(chunk, encoding) {
 };
 
 MemoryStream.prototype._getQueueSize = function() {
-	var queuesize = 0;
-	for(var i = 0; i < this.queue.length; i++ ){
+	var queuesize = 0,i = 0;
+	for(i = 0; i < this.queue.length; i++ ){
 		queuesize += Array.isArray(this.queue[i]) ? this.queue[i][0].length : this.queue[i].length;
 	}
 	return queuesize;
@@ -135,8 +135,8 @@ MemoryStream.prototype._emitEnd = function(){
 
 
 MemoryStream.prototype._getQueueSize = function() {
-	var queuesize = 0;
-	for(var i = 0; i < this.queue.length; i++ ){
+	var queuesize = 0, i = 0;
+	for(i = 0; i < this.queue.length; i++ ){
 		queuesize += Array.isArray(this.queue[i]) ? this.queue[i][0].length : this.queue[i].length;
 	}
 	return queuesize;
@@ -156,12 +156,16 @@ MemoryStream.prototype.flush = function() {
 		
 		if (this._decoder) {
 			var string = this._decoder.write(data);
-			if (string.length) this.emit('data', string);
+			if (string.length){
+				this.emit('data', string);
+			}
 		} else {
 			this.emit('data', data);
 		}
 		
-		if(cb) cb(null);
+		if(cb){
+			cb(null);
+		}
 		
 		if(this.reachmaxbuf && this.maxbufsize >= this._getQueueSize()){
 			this.reachmaxbuf = false;
@@ -229,4 +233,16 @@ MemoryStream.prototype.destroy = function() {
 	
 	this.readable = false;
 	this.writable = false;
+};
+
+
+MemoryStream.prototype.destroySoon = function() {
+	this.writable = false;
+	
+	this._destroy = true;
+	
+	if ( ! this.readable || this.queue.length == 0) {
+		this.destroy();
+	}
+	
 };
