@@ -241,7 +241,7 @@ MemoryStream.prototype.destroySoon = function() {
 	
 	this._destroy = true;
 	
-	if ( ! this.readable || this.queue.length == 0) {
+	if ( ! this.readable || this.queue.length === 0) {
 		this.destroy();
 	}
 	
