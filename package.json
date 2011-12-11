@@ -1,10 +1,12 @@
 {
 	"name": "memorystream",
 	"description": "This is lightweight memory stream module for node.js.",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"keywords": [
 		"memory",
-		"stream"
+		"stream",
+		"tools",
+		"streams"
 	],
 	"author": "Dmitry Nizovtsev (https://github.com/JSBizon)",
 	"contributors": [
