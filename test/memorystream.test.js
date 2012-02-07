@@ -83,7 +83,7 @@ module.exports = {
 		
 		beforeExit(function(){
 			memStream.setEncoding('utf8');
-			memStream.getAll().should.be.eql('data1data2');
+			memStream.toString().should.be.eql('data1data2');
 		});
 	},
 	
@@ -159,7 +159,7 @@ module.exports = {
 		});
 	},
 	
-	"test destroy" : function(beforeExit){
+	"test MemoryStream destroy" : function(beforeExit){
 		var memStream = new MemoryStream('data1');
 		memStream.write('data2').should.be.true;
 		
@@ -169,7 +169,7 @@ module.exports = {
 		});
 	},
 	
-	"test destroySoon" : function(beforeExit){
+	"test MemoryStream destroySoon" : function(beforeExit){
 		var memStream = new MemoryStream('data1');
 		var data = '';
 		memStream.on('data', function(chunk){
@@ -188,4 +188,54 @@ module.exports = {
 			memStream.write('data4');
 		});
 	},
+	
+	"test MemoryStream createReadStream" : function(beforeExit){
+		var done = false;
+		var memStream = MemoryStream.createReadStream(['hello',' ','world']);
+		var data = '';
+		
+		memStream.on('data', function(chunk){
+			data += chunk;
+		});
+		
+		memStream.on('end', function(){
+			data.should.equal('hello world');
+			done = true;
+		});
+		beforeExit(function(){
+			done.should.be.true;
+		});
+	},
+	
+	"test MemoryStream createWriteStream" : function(beforeExit){
+		var memStream = MemoryStream.createWriteStream();
+		memStream.write('hello');
+		memStream.write(' ');
+		memStream.write('world');
+		memStream.end();
+		
+		memStream.toString().should.equal('hello world');
+	},
+	
+	"test MemoryStream frequence" : function(beforeExit){
+		var memStream = MemoryStream.createReadStream(['hello',' ','world'],{frequence : 500});
+		var last = Date.now();
+		var done = false;
+		var data = '';
+		memStream.on('data',function(chunk){
+			var now = Date.now();	
+			((now - last) > 400).should.be.ok;
+			last = now;
+			data += chunk;
+		});
+		
+		memStream.on('end', function(){
+			done = true;
+		});
+		
+		
+		beforeExit(function(){
+			done.should.be.true;
+		});
+	}
 };

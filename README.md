@@ -59,7 +59,7 @@ In this example i'm pumping all data from the response stream to the memorystrea
 	var req = http.request(options, function(res) {
 		util.pump(res, memStream);
 		res.on('end',function(){
-			console.log(memStream.getAll());
+			console.log(memStream.toString());
 		});
 	});
 	req.end();

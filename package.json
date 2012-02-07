@@ -1,13 +1,18 @@
 {
 	"name": "memorystream",
 	"description": "This is lightweight memory stream module for node.js.",
-	"version": "0.0.5",
+	"version": "0.1.0",
 	"keywords": [
 		"memory",
+		"test",
 		"stream",
 		"tools",
 		"streams"
 	],
+	"devDependencies" : {
+		"expresso" : ">=0.7.x",
+		"jslint" : "*"
+	},
 	"author": "Dmitry Nizovtsev (https://github.com/JSBizon)",
 	"contributors": [
 		{ "name": "Dmitry Nizovtsev", "email": "dmitryp3@gmail.com" }
@@ -17,5 +22,9 @@
 		"url" : "https://github.com/JSBizon/node-memorystream.git"
 	},
 	"homepage": "https://github.com/JSBizon/node-memorystream",
-	"engines": { "node": ">= 0.3.0" }
+	"engines": { "node": ">= 0.3.0" },
+	"licenses": [ {
+		"type": "MIT",
+		"url" : "http://github.com/JSBizon/node-memorystream/raw/master/LICENSE"
+	}
 }

@@ -1,4 +1,9 @@
-test: 
+all : check test
+
+test : 
 	expresso test/*.test.js
-	
-.PHONY: test
+
+check :
+	jslint index.js
+
+.PHONY : test

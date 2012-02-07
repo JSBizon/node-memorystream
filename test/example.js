@@ -12,7 +12,7 @@ var memStream = new MemoryStream(null,{
 var req = http.request(options, function(res) {
 	util.pump(res, memStream);
 	res.on('end',function(){
-	    console.log(memStream.getAll());
+	    console.log(memStream.toString());
 	});
 });
 req.end();

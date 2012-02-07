@@ -43,6 +43,7 @@ function MemoryStream(data, options) {
 	this.writable = options.hasOwnProperty('writable') ? options.writable : true;
 	this.maxbufsize = options.hasOwnProperty('maxbufsize') ? options.maxbufsize : null;
 	this.bufoverflow = options.hasOwnProperty('bufoveflow') ? options.bufoveflow : null;
+	this.frequence = options.hasOwnProperty('frequence') ? options.frequence : null;
 	
 	process.nextTick(function(){
 		self._next();
@@ -52,18 +53,43 @@ module.exports = MemoryStream;
 
 util.inherits(MemoryStream, stream.Stream);
 
+MemoryStream.createReadStream = function(data, options) {
+	options = options || {};
+	options.readable = true;
+	options.writable = false;
+	
+	return new MemoryStream(data,options);
+};
+
+MemoryStream.createWriteStream = function(data, options){
+	options = options || {};
+	options.readable = false;
+	options.writable = true;
+	
+	return new MemoryStream(data,options);
+};
+
 
 MemoryStream.prototype._next = function() {
 	var self = this;
 	function next(){
-		if( self.flush() && self.readable){
+		function dodo(){
+			if( self.flush() && self.readable){
 				process.nextTick(next);
+			}
+		}
+		if(self.frequence){
+			setTimeout(dodo,self.frequence);
+		}else{
+			dodo();
 		}
 	}
-	next();
+	if( ! this.paused){
+		next();
+	}
 };
 
-MemoryStream.prototype.getAll = function() {
+MemoryStream.prototype.toString = MemoryStream.prototype.getAll = function() {
 	var self = this;
 	var ret = '';
 	this.queue.forEach(function(data){
@@ -84,20 +110,19 @@ MemoryStream.prototype.setEncoding = function(encoding) {
 	this._decoder = new StringDecoder(encoding);
 };
 
-MemoryStream.prototype.pipe = function(destination, options) {
-	util.pump(this, destination);
-};
 
 MemoryStream.prototype.pause = function() {
-		
-	this.paused = true;
+	if(this.readable){	
+		this.paused = true;
+	}
 };
 	
 MemoryStream.prototype.resume = function() {
+	if(this.readable){	
+		this.paused = false;
 		
-	this.paused = false;
-		
-	this._next();
+		this._next();
+	}
 };
 	
 MemoryStream.prototype.end = function(chunk, encoding) {
