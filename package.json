@@ -26,5 +26,5 @@
 	"licenses": [ {
 		"type": "MIT",
 		"url" : "http://github.com/JSBizon/node-memorystream/raw/master/LICENSE"
-	}
+	} ]
 }
