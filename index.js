@@ -96,7 +96,7 @@ MemoryStream.prototype.toString = MemoryStream.prototype.getAll = function() {
 		if (self._decoder) {
 			var string = self._decoder.write(data);
 			if (string.length){
-				ret += data;
+				ret += string;
 			}
 		} else {
 			ret+=data;
