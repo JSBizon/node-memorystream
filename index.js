@@ -105,6 +105,18 @@ MemoryStream.prototype.toString = MemoryStream.prototype.getAll = function() {
 	return ret;
 };
 
+MemoryStream.prototype.toBuffer = function () {
+    var buffer = new Buffer(this._getQueueSize());
+    var currentOffset = 0;
+
+    this.queue.forEach(function (data) {
+        data.copy(buffer, currentOffset);
+        currentOffset += data.length;
+    });
+
+    return buffer;
+};
+
 MemoryStream.prototype.setEncoding = function(encoding) {
 	var StringDecoder = require('string_decoder').StringDecoder;
 	this._decoder = new StringDecoder(encoding);

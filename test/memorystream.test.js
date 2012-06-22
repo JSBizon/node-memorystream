@@ -87,6 +87,34 @@ module.exports = {
 		});
 	},
 	
+	"toBuffer should return all data as one buffer" : function(beforeExit){
+		var memStream = new MemoryStream();
+		memStream.readable = false;
+		
+		memStream.write(new Buffer([1, 2, 3]));
+		memStream.write(new Buffer([4, 5, 6]));
+		
+		beforeExit(function(){
+			var buffer = memStream.toBuffer();
+            console.log(buffer);
+            buffer.toString('hex').should.equal('010203040506');
+		});
+	},
+	
+	"toBuffer should return all string data as one buffer" : function(beforeExit){
+		var memStream = new MemoryStream();
+		memStream.readable = false;
+		
+		memStream.write('hello ');
+		memStream.write('world!');
+		
+		beforeExit(function(){
+			var buffer = memStream.toBuffer();
+            console.log(buffer);
+            buffer.toString('utf-8').should.equal('hello world!');
+		});
+	},
+	
 	"test MemoryStream pipe" : function(beforeExit){
 		var loaded = false;
 		
