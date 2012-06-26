@@ -105,6 +105,18 @@ MemoryStream.prototype.toString = MemoryStream.prototype.getAll = function() {
 	return ret;
 };
 
+MemoryStream.prototype.toBuffer = function () {
+    var buffer = new Buffer(this._getQueueSize());
+    var currentOffset = 0;
+
+    this.queue.forEach(function (data) {
+        data.copy(buffer, currentOffset);
+        currentOffset += data.length;
+    });
+
+    return buffer;
+};
+
 MemoryStream.prototype.setEncoding = function(encoding) {
 	var StringDecoder = require('string_decoder').StringDecoder;
 	this._decoder = new StringDecoder(encoding);
@@ -141,15 +153,6 @@ MemoryStream.prototype.end = function(chunk, encoding) {
 	
 	this._emitEnd();
 };
-
-MemoryStream.prototype._getQueueSize = function() {
-	var queuesize = 0,i = 0;
-	for(i = 0; i < this.queue.length; i++ ){
-		queuesize += Array.isArray(this.queue[i]) ? this.queue[i][0].length : this.queue[i].length;
-	}
-	return queuesize;
-};
-
 
 MemoryStream.prototype._emitEnd = function(){
 	if(! this._ended){
