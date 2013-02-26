@@ -124,41 +124,35 @@ MemoryStream.prototype.setEncoding = function(encoding) {
 
 
 MemoryStream.prototype.pause = function() {
-	if(this.readable){
+	if(this.readable || this.writable) {
 		this.paused = true;
 	}
 };
 
 MemoryStream.prototype.resume = function() {
-	if(this.readable){
-		this.paused = false;
-
-		this._next();
-	}
+	this.paused = false;
+	this._next();
 };
 
 MemoryStream.prototype.end = function(chunk, encoding) {
-
-	if (typeof chunk !== 'undefined') {
-
+	if (typeof chunk !== 'undefined')
 		this.write(chunk, encoding);
-	}
 
 	this.writable = false;
 
-	if (this.queue.length === 0) {
-
+	if (this.queue.length === 0)
 		this.readable = false;
-	}
 
 	this._emitEnd();
 };
 
 MemoryStream.prototype._emitEnd = function(){
-	if(!this._ended && !this.paused) {
-		this._ended = true;
-		this.emit('end');
-	}
+	this._ended = true;
+	if(this.paused) {
+                this.on('drain', this.emit.bind(this,'end'));
+	} else {
+                this.emit('end');
+        }
 };
 
 
