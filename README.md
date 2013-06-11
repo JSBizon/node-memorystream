@@ -1,6 +1,7 @@
 # Introduction
 node-memorystream - this module allow create streams in memory. It can be used for emulating file streams, filtering/mutating data between one stream and another, buffering incoming data, being the gap between two data/network streams of variable rates, etc. MemoryStream support read/write states or only read state or only write state. The API is meant to follow node's Stream implementation.
 
+
 Original module is here git://github.com/ollym/memstream.git was remade and improved. 
 
 ## Installation
