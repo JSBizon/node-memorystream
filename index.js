@@ -151,7 +151,9 @@ MemoryStream.prototype.end = function(chunk, encoding) {
 		this.readable = false;
 	}
 	
-	this._emitEnd();
+	if (!this.queue.length) {
+		this._emitEnd();
+	}
 };
 
 MemoryStream.prototype._emitEnd = function(){
