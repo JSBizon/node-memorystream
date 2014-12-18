@@ -1,14 +1,14 @@
 var MemoryStream = require('../index.js'),
-	should = require('should');
+    should = require('should');
 
 var stream = require('stream'),
-	fs = require('fs');
+    fs = require('fs');
 
 module.exports = {
-	"test MemoryStream only read" : function(beforeExit){
-		var loaded = false;
-		
-		var memStream = new MemoryStream(['data1','data2'],{
+    "test MemoryStream only read" : function(beforeExit){
+        var loaded = false;
+
+        var memStream = new MemoryStream(['data1','data2'],{
 			writable : false
 		});
 		
@@ -183,7 +183,7 @@ module.exports = {
 		var memStream2 = new MemoryStream('data');
 		memStream2.setEncoding('utf8');
 		memStream2.on('data',function(chunk){
-			chunk.should.be.a('string');
+			chunk.should.be.type('string');
 		});
 	},
 	
@@ -245,7 +245,7 @@ module.exports = {
 		memStream.toString().should.equal('hello world');
 	},
 	
-	"test MemoryStream frequence" : function(beforeExit){
+	"test MemoryStream frequence" : function (beforeExit) {
 		var memStream = MemoryStream.createReadStream(['hello',' ','world'],{frequence : 500});
 		var last = Date.now();
 		var done = false;
@@ -265,5 +265,28 @@ module.exports = {
 		beforeExit(function(){
 			done.should.be.true;
 		});
+	},
+	
+	"test end() if stream is in a paused state" : function () {
+	    /*
+	    var ms = new MemoryStream();
+
+	    ms.pause();
+
+
+	    call_something_that_sets_up_a_pipe_async(ms);
+
+	    process.nextTick(function () {
+	        ms.end('foo');
+	    });
+	    */
+	},
+	
+	"resuming ended streams" : function () {
+	    
+	},
+	
+	"drain event" : function () {
+	    
 	}
 };
