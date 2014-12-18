@@ -116,8 +116,8 @@ MemoryStream.prototype.toBuffer = function () {
         currentOffset = 0;
 
     this.queue.forEach(function (data) {
-        data.copy(buffer, currentOffset);
-        currentOffset += data.length;
+	data.copy(buffer, currentOffset);
+	currentOffset += data.length;
     });
 
     return buffer;
@@ -137,7 +137,6 @@ MemoryStream.prototype.pause = function () {
 MemoryStream.prototype.resume = function () {
     if (this.readable) {
         this.paused = false;
-
         this._next();
     }
 };
