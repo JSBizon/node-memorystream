@@ -292,5 +292,19 @@ describe('Test memory streams', function() {
             
         });
         
+        it("should readable/piping data", function (done) {
+            var src_mem_stream = MemoryStream.createReadStream(test_data.split(''), {frequency : 25});
+            var dst_mem_stream = MemoryStream.createWriteStream();
+            
+            src_mem_stream.once('readable', function () {
+                src_mem_stream.pipe(dst_mem_stream);
+            });
+            
+            dst_mem_stream.on('finish',function(){
+                expect(dst_mem_stream.toString()).to.be(test_data);
+                done();
+            });
+        });
+        
     });
 });
