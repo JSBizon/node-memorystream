@@ -1,292 +1,296 @@
 var MemoryStream = require('../index.js'),
-    should = require('should');
+    expect = require('expect.js'),
+    STREAM = require('stream'),
+    Q = require('q'),
+    FS = require('fs');
 
-var stream = require('stream'),
-    fs = require('fs');
+describe('Test memory streams', function() { 
+    
+    var writeToStream = function (mem_stream, test_data, frequency) {
+        var result = Q(),
+            i = 0;
+        
+        frequency = frequency || 0;
+        
+        test_data.forEach(function (chunk) {
+            var f = Q.nfbind(function (chunk,n, cb) {
+                setTimeout(function () {
+                    if (n >= (test_data.length - 1) ) {
+                        mem_stream.end(chunk);
+                    } else {
+                        mem_stream.write(chunk, cb);
+                    }
+                }, frequency);
+            }, chunk ,i++);
+            result = result.then(function() { return f(); });
+        });
+        
+        result.done();
+    };
+    
+    var writeToStream2 = function (mem_stream, test_data) {
+        var i;
+        for (i = 0; i < test_data.length ; i++) {
+            setTimeout((function(n) {
+                return function () {
+                    if (n >= (test_data.length - 1) ) {
+                        mem_stream.end(test_data[n]);
+                    } else {
+                        mem_stream.write(test_data[n]);
+                    }
+                }
+            })(i), i * 2);
+        }
+    };
+    
+    describe("constructor", function() {
+        it('should have a MemoryStream class', function () {
+            expect(MemoryStream).to.be.ok();
+        });
+        
+        it('should create Readable stream', function () {
+            var memory_stream = new MemoryStream([], {writable : false});
+            expect(memory_stream).to.be.ok();
+            expect(memory_stream).to.be.a(STREAM.Readable);
+            
+            memory_stream = MemoryStream.createReadStream([]);
+            expect(memory_stream).to.be.a(STREAM.Readable);
+        });
+        
+        it('should create Writable stream', function () {
+            var memory_stream = new MemoryStream([], {readable : false});
+            expect(memory_stream).to.be.ok();
+            expect(memory_stream).to.be.a(STREAM.Writable);
+            
+            memory_stream = MemoryStream.createWriteStream([]);
+            expect(memory_stream).to.be.a(STREAM.Writable);
+        });
+        
+        it('should create Duplex stream', function () {
+            var memory_stream = new MemoryStream([]);
+            expect(memory_stream).to.be.ok();
+            expect(memory_stream).to.be.a(STREAM.Duplex);
+        });
+        
+    });
+    
+    describe("readable stream", function () {
+        var test_data = 'abcdefghijklmnopqrstuvwxyz',
+            frequence = 50;
+        
+        it("should read data from stream", function (done) {
+            var mem_stream = MemoryStream.createReadStream(test_data.split(''));
+            
+            var data = '', chunks = 0;
+            mem_stream.on('data',function(chunk){
+                data += chunk;
+                ++chunks;
+            });
+            
+            mem_stream.on('end',function () {
+                expect(chunks).to.be(test_data.length);
+                expect(data).to.be(test_data);
+                done();
+            });
+        });
+        
+        it("should read data from stream with frequency", function (done) {
+            
+            var mem_stream = new MemoryStream(test_data.split(''), {
+                writable : false,
+                frequence: frequence
+            });
+            
+            var start_time = Date.now();
+            
+            var data = '';
+            mem_stream.on('data',function(chunk){
+                data += chunk;
+            });
+            
+            mem_stream.on('end',function(){
+                var execution_time = Date.now() - start_time;
+                
+                expect(data).to.be(test_data);
+                expect(execution_time >= frequence * test_data.length).to.be(true);
+                
+                done();
+            });
+        });
+        
+        it("should read data pause/resume", function (done) {
+            var mem_stream = MemoryStream.createReadStream(test_data.split(''));
+            
+            var start_time = Date.now();
+            
+            var data = '', chunks = 0;
+            mem_stream.on('data',function(chunk){
+                data += chunk;
+                ++chunks;
+                
+                if (! (chunks % 10) ) {
+                    mem_stream.pause();
+                    setTimeout(function () {
+                        mem_stream.resume();
+                    },frequence);
+                }
+            });
+            
+            mem_stream.on('end',function() {
+                var execution_time = Date.now() - start_time;
+                
+                expect(data).to.be(test_data);
+                expect(execution_time >= frequence).to.be(true);
+                
+                done();
+            });
+        });
+        
+    });
+    
+    describe("writable stream", function () {
+        var test_data = 'abcdefghijklmnopqrstuvwxyz';
+            
+        it("should write data to Writable", function (done) {
+            var mem_stream = MemoryStream.createWriteStream(),
+                i = 0;
+            
+            writeToStream(mem_stream, test_data.split(''));
+            
+            mem_stream.on('finish',function () {
+                expect(mem_stream.toString()).to.be(test_data);
+                done();
+            });
+            
+        });
+        
+        it("should not write data to readable stream", function (done) {
+            var mem_stream = new MemoryStream([], {writable : false});
+            expect(function () {
+                mem_stream.write("test");
+            }).to.throwError();
+            
+            expect(function () {
+                mem_stream.end("test");
+            }).to.throwError();
+            
+            done();
+        });
+        
+        it("#toString", function (done) {
+            var mem_stream = new MemoryStream(null, {readable : false});
+            writeToStream(mem_stream, test_data.split(''));
+            
+            mem_stream.on('finish',function () {
+                expect(mem_stream.toString()).to.be(test_data);
+                done();
+            });
+        });
+        
+        it("#toBuffer", function (done) {
+            var mem_stream = new MemoryStream(null, {readable : false});
+            writeToStream(mem_stream, test_data.split(''));
+            
+            mem_stream.on('finish',function () {
+                expect(mem_stream.toBuffer().toString('utf-8')).to.be(test_data);
+                done();
+            });
+        });
+        
+        it("#toBuffer all data in one buffer", function (done) {
+            var i = 0,
+                mem_stream = new MemoryStream(null, {readable : false}),
+                arr_test_data = [],
+                str_test_data = '';
+            for (i = 0; i < 20; i++) {
+                var b = new Buffer([i]);
+                arr_test_data.push(b);
+                str_test_data += b.toString('hex');
+            }
+            
+            writeToStream(mem_stream, arr_test_data, 10);
+            
+            mem_stream.on('finish',function () {
+                expect(mem_stream.toBuffer().toString('hex')).to.be(str_test_data);
+                done();
+            });
+            
+        });
+        
+        it("not write data to the overflowed buffer", function (done) {
+            var mem_stream = new MemoryStream('data1'.split(''), {
+                readable : false,
+                maxbufsize : 10
+            });
+            
+            mem_stream.write('data2', function (err) {
+                expect(err).to.not.be.ok();
+                expect(mem_stream.toString()).to.be('data1data2');
+                mem_stream.write('data3', function (err) {
+                    expect(err).to.not.be.ok();
+                    expect(mem_stream.toString()).to.be('data1data2');
+                    done();
+                });
+            });
+        });
+        
+        it("should process error for overflowed buffer", function (done) {
+            var mem_stream = new MemoryStream('data1'.split(''), {
+                readable : false,
+                maxbufsize : 10,
+                bufoverflow : true
+            });
+            
+            mem_stream.write('data2', function (err) {
+                expect(err).to.not.be.ok();
+                expect(mem_stream.toString()).to.be('data1data2');
+                mem_stream.write('data3', function (err) {
+                    expect(err).to.be.ok();
+                    expect(mem_stream.toString()).to.be('data1data2');
+                    done();
+                });
+                
+            });
+            
+            mem_stream.on('error', function () {
+            });
+            
+        });
+    });
+    
+    describe("duplex stream", function () {
+        var test_data = 'abcdefghijklmnopqrstuvwxyz';
+        
+        it("should write/read",function (done) {
+            var mem_stream = new MemoryStream();
+            
+            var data = '';
+            mem_stream.on('data',function(chunk){
+                data += chunk;
+            });
+            
+            writeToStream(mem_stream, test_data.split(''));
+            
+            mem_stream.on('end', function () {
+                expect(data).to.be(test_data);
+                done();
+            });
+        });
+        
 
-module.exports = {
-    "test MemoryStream only read" : function(beforeExit){
-        var loaded = false;
-
-        var memStream = new MemoryStream(['data1','data2'],{
-			writable : false
-		});
-		
-		var data = '';
-		memStream.on('data',function(chunk){
-			data+=chunk;
-		});
-		
-		memStream.on('end',function(){
-			data.should.be.eql('data1data2');
-			loaded  = true;
-		});
-		
-		beforeExit(function(){
-			loaded.should.be.true;
-		});
-	},
-	
-	"test MemoryStream write/read" : function(beforeExit){
-		var loaded = false;
-		var memStream = new MemoryStream();
-		
-		var data = '';
-		memStream.on('data',function(chunk){
-			data+=chunk;
-		});
-		
-		memStream.on('end',function(){
-			data.should.be.eql('test1test2test3');
-			loaded  = true;
-		});
-		
-		memStream.write('test1');
-		setTimeout(function(){
-			memStream.write('test2');
-			memStream.end('test3');
-		},500);
-		
-		beforeExit(function(){
-			loaded.should.be.true;
-		});
-	},
-	
-	"test MemoryStream readable/writable" : function(beforeExit){
-		var memStream = new MemoryStream(['data'],{
-			writable : false
-		});
-		should.throws(function(){
-			memStream.write('test');
-		});
-		
-		memStream = new MemoryStream('data',{
-			readable : false
-		});
-		var data = '';
-		memStream.on('data',function(chunk){
-			data += chunk;
-		});
-		memStream.write('test');
-		
-		beforeExit(function(){
-			data.should.be.eql('');
-		});
-	},
-	
-	"test MemoryStream buffering" : function(beforeExit){
-		var memStream = new MemoryStream();
-		memStream.readable = false;
-		
-		memStream.write('data1');
-		memStream.write('data2');
-		
-		beforeExit(function(){
-			memStream.setEncoding('utf8');
-			memStream.toString().should.be.eql('data1data2');
-		});
-	},
-	
-	"toBuffer should return all data as one buffer" : function(beforeExit){
-		var memStream = new MemoryStream();
-		memStream.readable = false;
-		
-		memStream.write(new Buffer([1, 2, 3]));
-		memStream.write(new Buffer([4, 5, 6]));
-		
-		beforeExit(function(){
-			var buffer = memStream.toBuffer();
-            console.log(buffer);
-            buffer.toString('hex').should.equal('010203040506');
-		});
-	},
-	
-	"toBuffer should return all string data as one buffer" : function(beforeExit){
-		var memStream = new MemoryStream();
-		memStream.readable = false;
-		
-		memStream.write('hello ');
-		memStream.write('world!');
-		
-		beforeExit(function(){
-			var buffer = memStream.toBuffer();
-            console.log(buffer);
-            buffer.toString('utf-8').should.equal('hello world!');
-		});
-	},
-	
-	"test MemoryStream pipe" : function(beforeExit){
-		var loaded = false;
-		
-		var srcStream = new MemoryStream('data1');
-		var dstStream = new MemoryStream();
-		
-		srcStream.pipe(dstStream);
-		
-		var data = '';
-		dstStream.on('data',function(chunk){
-			data+=chunk;
-		});
-		
-		dstStream.on('end',function(){
-			data.should.be.eql('data1data2data3');
-			loaded = true;
-		});
-		
-		srcStream.write('data2');
-		
-		setTimeout(function(){
-			srcStream.write('data3');
-			srcStream.end();
-		},500);
-		
-		beforeExit(function(){
-			loaded.should.be.true;
-		});
-	},
-	
-	"test MemoryStream bufsize" : function(beforeExit){
-		var memStream = new MemoryStream('data1',{
-			readable : false,
-			maxbufsize : 10
-		});
-		
-		memStream.write('data2').should.be.true;
-		memStream.write('data3').should.be.false;
-	},
-	
-	"test MemoryStream pause/resume" : function(beforeExit){
-		var memStream = new MemoryStream('data1');
-		memStream.pause();
-		var data = '';
-		memStream.on('data',function(chunk){
-			data += chunk;
-		});
-		memStream.write('data2');
-		
-		setTimeout(function(){
-			data.should.be.eql('');
-			memStream.resume();
-		},500);
-		
-		beforeExit(function(){
-			data.should.be.eql('data1data2');
-		});
-	},
-	
-	"test MemoryStream setEncoding" : function(beforeExit){
-		var memStream = new MemoryStream('data');
-		memStream.on('data',function(chunk){
-			chunk.should.be.instanceof(Buffer);
-		});
-		
-		var memStream2 = new MemoryStream('data');
-		memStream2.setEncoding('utf8');
-		memStream2.on('data',function(chunk){
-			chunk.should.be.type('string');
-		});
-	},
-	
-	"test MemoryStream destroy" : function(beforeExit){
-		var memStream = new MemoryStream('data1');
-		memStream.write('data2').should.be.true;
-		
-		memStream.destroy();
-		should.throws(function(){
-			memStream.write('data3');
-		});
-	},
-	
-	"test MemoryStream destroySoon" : function(beforeExit){
-		var memStream = new MemoryStream('data1');
-		var data = '';
-		memStream.on('data', function(chunk){
-			data += chunk;
-		});
-		
-		memStream.write('data2').should.be.true;
-		memStream.write('data3').should.be.true;
-		
-		memStream.on('end', function(){
-			data.should.equal('data1data2data3');
-		});
-		
-		memStream.destroySoon();
-		should.throws(function(){
-			memStream.write('data4');
-		});
-	},
-	
-	"test MemoryStream createReadStream" : function(beforeExit){
-		var done = false;
-		var memStream = MemoryStream.createReadStream(['hello',' ','world']);
-		var data = '';
-		
-		memStream.on('data', function(chunk){
-			data += chunk;
-		});
-		
-		memStream.on('end', function(){
-			data.should.equal('hello world');
-			done = true;
-		});
-		beforeExit(function(){
-			done.should.be.true;
-		});
-	},
-	
-	"test MemoryStream createWriteStream" : function(beforeExit){
-		var memStream = MemoryStream.createWriteStream();
-		memStream.write('hello');
-		memStream.write(' ');
-		memStream.write('world');
-		memStream.end();
-		
-		memStream.toString().should.equal('hello world');
-	},
-	
-	"test MemoryStream frequence" : function (beforeExit) {
-		var memStream = MemoryStream.createReadStream(['hello',' ','world'],{frequence : 500});
-		var last = Date.now();
-		var done = false;
-		var data = '';
-		memStream.on('data',function(chunk){
-			var now = Date.now();	
-			((now - last) > 400).should.be.ok;
-			last = now;
-			data += chunk;
-		});
-		
-		memStream.on('end', function(){
-			done = true;
-		});
-		
-		
-		beforeExit(function(){
-			done.should.be.true;
-		});
-	},
-	
-	"test end() if stream is in a paused state" : function () {
-	    /*
-	    var ms = new MemoryStream();
-
-	    ms.pause();
-
-
-	    call_something_that_sets_up_a_pipe_async(ms);
-
-	    process.nextTick(function () {
-	        ms.end('foo');
-	    });
-	    */
-	},
-	
-	"resuming ended streams" : function () {
-	    
-	},
-	
-	"drain event" : function () {
-	    
-	}
-};
+        it("should piping data", function (done) {
+            var src_mem_stream = MemoryStream.createReadStream(test_data.split(''), {frequency : 25});
+            var dst_mem_stream = MemoryStream.createWriteStream();
+            
+            src_mem_stream.pipe(dst_mem_stream);
+            
+            dst_mem_stream.on('finish',function(){
+                expect(dst_mem_stream.toString()).to.be(test_data);
+                done();
+            });
+            
+            
+        });
+        
+    });
+});

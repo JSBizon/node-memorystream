@@ -1,13 +1,40 @@
-/*jslint nomen: true, plusplus: true*/
 'use strict';
 
-var stream = require('stream'),
-    util = require('util');
+var STREAM = require('stream'),
+    UTIL = require('util'),
+    StringDecoder = require('string_decoder').StringDecoder;
 
-function MemoryStream(data, options) {
-    stream.Stream.call(this);
+function MemoryReadableStream(data, options) {
+    if (!(this instanceof MemoryReadableStream))
+        return new MemoryReadableStream(data, options);
+    MemoryReadableStream.super_.call(this, options);
+    this.init(data, options);
+}
+UTIL.inherits(MemoryReadableStream, STREAM.Readable);
+
+
+function MemoryWritableStream(data, options) {
+    if (!(this instanceof MemoryWritableStream))
+        return new MemoryWritableStream(data, options);
+    MemoryWritableStream.super_.call(this, options);
+    this.init(data, options);
+}
+UTIL.inherits(MemoryWritableStream, STREAM.Writable);
+
+
+function MemoryDuplexStream(data, options) {
+    if (!(this instanceof MemoryDuplexStream))
+        return new MemoryDuplexStream(data, options);
+    MemoryDuplexStream.super_.call(this, options);
+    this.init(data, options);
+}
+UTIL.inherits(MemoryDuplexStream, STREAM.Duplex);
+
+
+MemoryReadableStream.prototype.init =
+MemoryWritableStream.prototype.init =
+MemoryDuplexStream.prototype.init = function init (data, options) {
     var self = this;
-
     this.queue = [];
 
     if (data) {
@@ -19,46 +46,40 @@ function MemoryStream(data, options) {
             if (!(chunk instanceof Buffer)) {
                 chunk = new Buffer(chunk);
             }
-
             self.queue.push(chunk);
         });
     }
-
-    this.paused = false;
-    this.reachmaxbuf = false;
-
+    
     options = options || {};
-
-    this.readableVal = options.hasOwnProperty('readable') ? options.readable
-            : true;
-
-    this.__defineGetter__("readable", function () {
-        return self.readableVal;
-    });
-
-    this.__defineSetter__("readable", function (val) {
-        self.readableVal = val;
-        if (val) {
-            self._next();
-        }
-    });
-
-    this.writable = options.hasOwnProperty('writable') ? options.writable
-            : true;
+    
     this.maxbufsize = options.hasOwnProperty('maxbufsize') ? options.maxbufsize
             : null;
-    this.bufoverflow = options.hasOwnProperty('bufoveflow') ? options.bufoveflow
+    this.bufoverflow = options.hasOwnProperty('bufoverflow') ? options.bufoverflow
             : null;
     this.frequence = options.hasOwnProperty('frequence') ? options.frequence
             : null;
+};
 
-    process.nextTick(function () {
-        self._next();
-    });
+function MemoryStream (data, options) {
+    if (!(this instanceof MemoryStream))
+        return new MemoryStream(data, options);
+    
+    options = options || {};
+    
+    var readable = options.hasOwnProperty('readable') ? options.readable : true,
+        writable = options.hasOwnProperty('writable') ? options.writable : true;
+    
+    if (readable && writable) {
+        return new MemoryDuplexStream(data, options);
+    } else if (readable) {
+        return new MemoryReadableStream(data, options);
+    } else if (writable) {
+        return new MemoryWritableStream(data, options);
+    } else {
+        throw new Error("Unknown stream type  Readable, Writable or Duplex ");
+    }
 }
-module.exports = MemoryStream;
 
-util.inherits(MemoryStream, stream.Stream);
 
 MemoryStream.createReadStream = function (data, options) {
     options = options || {};
@@ -68,6 +89,7 @@ MemoryStream.createReadStream = function (data, options) {
     return new MemoryStream(data, options);
 };
 
+
 MemoryStream.createWriteStream = function (data, options) {
     options = options || {};
     options.readable = false;
@@ -76,96 +98,73 @@ MemoryStream.createWriteStream = function (data, options) {
     return new MemoryStream(data, options);
 };
 
-MemoryStream.prototype._next = function () {
-    var self = this;
-    function next() {
-        function dodo() {
-            if (self.flush() && self.readable) {
-                process.nextTick(next);
-            }
-        }
-        if (self.frequence) {
-            setTimeout(dodo, self.frequence);
-        } else {
-            dodo();
-        }
-    }
-    if (!this.paused) {
-        next();
-    }
-};
 
-MemoryStream.prototype.toString = MemoryStream.prototype.getAll = function () {
+MemoryReadableStream.prototype._read =
+MemoryDuplexStream.prototype._read = function _read (n) {
     var self = this,
-        ret = '';
-    this.queue.forEach(function (data) {
-        if (self._decoder) {
-            var string = self._decoder.write(data);
-            if (string.length) {
-                ret += string;
+        frequence = self.frequence || 0,
+        wait_data = this instanceof STREAM.Duplex && ! this._writableState.finished ? true : false;
+    
+    if ( ! this.queue.length && ! wait_data) {
+        this.push(null);// finish stream
+    } else if (this.queue.length) {
+        setTimeout(function () {
+            if (self.queue.length) {
+                var chunk = self.queue.shift();
+                if (chunk && ! self._readableState.ended) {
+                    if ( ! self.push(chunk) ) {
+                        self.queue.unshift(chunk);
+                    }
+                }
             }
+        }, frequence);
+    }
+};
+
+
+MemoryWritableStream.prototype._write =
+MemoryDuplexStream.prototype._write = function _write (chunk, encoding, cb) {
+    var decoder = null;
+    try {
+        decoder = this.decodeStrings && encoding ? new StringDecoder(encoding) : null;
+    } catch (err){
+        return cb(err);
+    }
+    
+    var decoded_chunk = decoder ? decoder.write(chunk) : chunk,
+        queue_size = this._getQueueSize(),
+        chunk_size = decoded_chunk.length;
+    
+    if (this.maxbufsize && (queue_size + chunk_size) > this.maxbufsize ) {
+        if (this.bufoverflow) {
+            return cb("Buffer overflowed (" + this.bufoverflow + "/" + queue_size + ")");
         } else {
-            ret += data;
+            return cb();
         }
+    }
+    
+    if (this instanceof STREAM.Duplex) {
+        this.push(decoded_chunk);
+    } else {
+        this.queue.push(decoded_chunk);
+    }
+    cb();
+};
+
+
+MemoryDuplexStream.prototype.end = function (chunk, encoding, cb) {
+    var self = this;
+    return MemoryDuplexStream.super_.prototype.end.call(this, chunk, encoding, function () {
+        self.push(null);//finish readble stream too
+        if (cb) cb();
     });
-    return ret;
 };
 
-MemoryStream.prototype.toBuffer = function () {
-    var buffer = new Buffer(this._getQueueSize()),
-        currentOffset = 0;
 
-    this.queue.forEach(function (data) {
-	data.copy(buffer, currentOffset);
-	currentOffset += data.length;
-    });
-
-    return buffer;
-};
-
-MemoryStream.prototype.setEncoding = function (encoding) {
-    var StringDecoder = require('string_decoder').StringDecoder;
-    this._decoder = new StringDecoder(encoding);
-};
-
-MemoryStream.prototype.pause = function () {
-    if (this.readable) {
-        this.paused = true;
-    }
-};
-
-MemoryStream.prototype.resume = function () {
-    if (this.readable) {
-        this.paused = false;
-        this._next();
-    }
-};
-
-MemoryStream.prototype.end = function (chunk, encoding) {
-    if (chunk === undefined) {
-        this.write(chunk, encoding);
-    }
-
-    this.writable = false;
-
-    if (this.queue.length === 0) {
-        this.readable = false;
-    }
-
-    if (!this.queue.length) {
-        this._emitEnd();
-    }
-};
-
-MemoryStream.prototype._emitEnd = function () {
-    if (!this._ended) {
-        this._ended = true;
-        this.emit('end');
-    }
-};
-
-MemoryStream.prototype._getQueueSize = function () {
-    var queuesize = 0, i = 0;
+MemoryReadableStream.prototype._getQueueSize =  
+MemoryWritableStream.prototype._getQueueSize = 
+MemoryDuplexStream.prototype._getQueueSize = function () {
+    var queuesize = 0, i;
     for (i = 0; i < this.queue.length; i++) {
         queuesize += Array.isArray(this.queue[i]) ? this.queue[i][0].length
                 : this.queue[i].length;
@@ -173,105 +172,35 @@ MemoryStream.prototype._getQueueSize = function () {
     return queuesize;
 };
 
-MemoryStream.prototype.flush = function () {
-    var cb,data,string;
-    if (!this.paused && this.readable && this.queue.length > 0) {
-        data = this.queue.shift();
 
-        if (Array.isArray(data)) {
-            cb = data[1];
-            data = data[0];
-        }
-
-        if (this._decoder) {
-            string = this._decoder.write(data);
-            if (string.length) {
-                this.emit('data', string);
-            }
-        } else {
-            this.emit('data', data);
-        }
-
-        if (cb) {
-            cb(null);
-        }
-
-        if (this.reachmaxbuf && this.maxbufsize >= this._getQueueSize()) {
-            this.reachmaxbuf = false;
-            this.emit('drain');
-        }
-
-        return true;
-    }
-
-    if (!this.writable && !this.queue.length) {
-        this._emitEnd();
-    }
-
-    return false;
+MemoryWritableStream.prototype.toString = 
+MemoryDuplexStream.prototype.toString = 
+MemoryReadableStream.prototype.toString = 
+MemoryWritableStream.prototype.getAll = 
+MemoryDuplexStream.prototype.getAll = 
+MemoryReadableStream.prototype.getAll = function () {
+    var self = this,
+        ret = '';
+    this.queue.forEach(function (data) {
+        ret += data;
+    });
+    return ret;
 };
 
-MemoryStream.prototype.write = function (chunk, encoding, callback) {
 
-    if (!this.writable) {
+MemoryWritableStream.prototype.toBuffer = 
+MemoryDuplexStream.prototype.toBuffer = 
+MemoryReadableStream.prototype.toBuffer = function () {
+    var buffer = new Buffer(this._getQueueSize()),
+        currentOffset = 0;
 
-        throw new Error('The memory stream is no longer writable.');
-    }
-
-    if (typeof encoding === 'function') {
-
-        callback = encoding;
-        encoding = undefined;
-    }
-
-    if (!(chunk instanceof Buffer)) {
-
-        chunk = new Buffer(chunk, encoding);
-    }
-
-    var queuesize = chunk.length;
-    if (this.maxbufsize || this.bufoverflow) {
-        queuesize += this._getQueueSize();
-        if (this.bufoveflow && queuesize > this.bufoveflow) {
-            this.emit('error', "Buffer overflowed (" + this.bufoverflow + "/"
-                    + queuesize + ")");
-            return;
-        }
-    }
-
-    if (typeof callback === 'function') {
-        this.queue.push([ chunk, callback ]);
-    } else {
-        this.queue.push(chunk);
-    }
-
-    this._next();
-
-    if (this.maxbufsize && queuesize > this.maxbufsize) {
-        this.reachmaxbuf = true;
-        return false;
-    }
-
-    return true;
+    this.queue.forEach(function (data) {
+        var data_buffer = data instanceof Buffer ? data : new Buffer(data);
+        data_buffer.copy(buffer, currentOffset);
+        currentOffset += data.length;
+    });
+    return buffer;
 };
 
-MemoryStream.prototype.destroy = function () {
 
-    this.end();
-
-    this.queue = [];
-
-    this.readable = false;
-    this.writable = false;
-};
-
-MemoryStream.prototype.destroySoon = function () {
-    this.writable = false;
-
-    this._destroy = true;
-
-    if (!this.readable || this.queue.length === 0) {
-        this.destroy();
-    }
-
-};
+module.exports = MemoryStream;
