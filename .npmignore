@@ -1,0 +1,7 @@
+.project
+.settings
+.settings/*
+.gitignore
+node_modules/
+.travis.yml
+test-case/
