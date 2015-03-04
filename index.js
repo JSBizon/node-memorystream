@@ -48,6 +48,7 @@ MemoryDuplexStream.prototype.init = function init (data, options) {
             }
             self.queue.push(chunk);
         });
+
     }
     
     options = options || {};
@@ -104,7 +105,6 @@ MemoryDuplexStream.prototype._read = function _read (n) {
     var self = this,
         frequence = self.frequence || 0,
         wait_data = this instanceof STREAM.Duplex && ! this._writableState.finished ? true : false;
-    
     if ( ! this.queue.length && ! wait_data) {
         this.push(null);// finish stream
     } else if (this.queue.length) {
@@ -144,6 +144,9 @@ MemoryDuplexStream.prototype._write = function _write (chunk, encoding, cb) {
     }
     
     if (this instanceof STREAM.Duplex) {
+        while (this.queue.length) {
+            this.push(this.queue.shift());
+        }
         this.push(decoded_chunk);
     } else {
         this.queue.push(decoded_chunk);

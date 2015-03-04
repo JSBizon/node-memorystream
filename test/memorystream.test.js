@@ -276,6 +276,29 @@ describe('Test memory streams', function() {
                 done();
             });
         });
+
+        it("should write/read data with init buffer", function (done) {
+
+            var l = Math.floor(test_data.length / 2);
+
+            var test_data1 = test_data.substr(0, l),
+                test_data2 = test_data.substr(l);
+
+            var mem_stream = new MemoryStream(test_data1.split(''));
+
+            var data = '';
+            mem_stream.on('data',function(chunk){
+                data += chunk;
+            });
+
+            writeToStream2(mem_stream, test_data2);
+
+            mem_stream.on('end', function() {
+                expect(data).to.be(test_data);
+                done();
+            });
+
+        });
         
 
         it("should piping data", function (done) {
